@@ -145,7 +145,7 @@
         #selected-letter {
             font-size: 80px;
             font-weight: 900;
-            color: #333; /* Default off */
+            color: #333; 
             text-shadow: none;
             border: 2px dashed #333;
             width: 120px;
@@ -191,11 +191,11 @@
     <header>
         <h1>INFINITY // COMMAND CENTER</h1>
         <div class="connection-bar">
-            <input type="text" id="mqtt-host" value="broker.hivemq.com" placeholder="Broker Host (e.g. 192.168.1.100)">
-            <input type="number" id="mqtt-port" value="8000" placeholder="Port (Default 8000)" style="width: 100px;">
+            <input type="text" id="mqtt-host" value="broker.hivemq.com" placeholder="Broker Host">
+            <input type="number" id="mqtt-port" value="8884" placeholder="Port (Default 8884)" style="width: 100px;">
             <button class="btn-connect" onclick="connectMQTT()">CONNECT SYSTEM</button>
         </div>
-        <div id="status-msg">SYSTEM OFFLINE. ENTER BROKER IP TO START.</div>
+        <div id="status-msg">SYSTEM OFFLINE. CLICK CONNECT TO START.</div>
     </header>
 
     <div class="dashboard">
@@ -252,26 +252,28 @@
         // Timer Logic
         let isHolding = false;
         let holdStartTime = 0;
-        let cooldownUntil = 0; // Chống spam toggle liên tục
+        let cooldownUntil = 0; 
         
         // Keystroke Logic
         let currentLetter = 'A';
         let lastTypeTime = 0;
-        const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_"; // Dấu _ đại diện cho khoảng trắng (Space)
+        const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_"; 
 
         function connectMQTT() {
             const host = document.getElementById("mqtt-host").value;
             const port = parseInt(document.getElementById("mqtt-port").value);
             const clientId = "infinity_web_" + Math.floor(Math.random() * 10000);
             
-            document.getElementById("status-msg").innerText = "CONNECTING TO " + host + "...";
+            document.getElementById("status-msg").innerText = "CONNECTING TO " + host + " (WSS)...";
             document.getElementById("status-msg").style.color = "#FF9900";
 
             client = new Paho.MQTT.Client(host, port, clientId);
             client.onConnectionLost = onConnectionLost;
             client.onMessageArrived = onMessageArrived;
 
+            // ĐÃ THÊM useSSL: true ĐỂ QUA MẶT CHẾ ĐỘ BẢO MẬT CỦA VERCEL/GITHUB
             client.connect({
+                useSSL: true,
                 onSuccess: onConnect,
                 onFailure: onFail
             });
@@ -324,7 +326,6 @@
             const now = Date.now();
             
             if (f1Bent && f2Bent) {
-                // Cả 2 ngón đang cụp
                 if (now > cooldownUntil) {
                     if (!isHolding) {
                         isHolding = true;
@@ -334,18 +335,15 @@
                     let holdDuration = now - holdStartTime;
                     
                     if (holdDuration >= 3000) {
-                        // Kích hoạt Toggle
                         toggleTypingMode();
                         isHolding = false;
                         document.getElementById("hold-feedback").innerText = "MODE SWITCHED!";
-                        cooldownUntil = now + 2000; // Nghỉ 2 giây không nhận lệnh toggle
+                        cooldownUntil = now + 2000; 
                     } else {
-                        // Hiện đếm ngược trên màn hình
                         document.getElementById("hold-feedback").innerText = `HOLDING TO TOGGLE... ${(holdDuration/1000).toFixed(1)}s / 3.0s`;
                     }
                 }
             } else {
-                // Nhả 1 trong 2 ngón ra -> Xóa timer
                 if (isHolding) {
                     isHolding = false;
                     document.getElementById("hold-feedback").innerText = "HOLD CANCELED";
@@ -357,25 +355,20 @@
 
             // 3. Logic Đánh chữ (Chỉ chạy khi Typing Mode bật)
             if (isTypingMode) {
-                // A. Tính toán chữ cái dựa trên góc Roll (-60 đến +60 độ)
-                // Giới hạn góc nghiêng để không trẹo tay
                 let clampedRoll = Math.max(-60, Math.min(60, roll)); 
-                // Chuyển đổi dải [-60, 60] thành index [0, 26]
-                let normalized = (clampedRoll + 60) / 120; // Giá trị từ 0 đến 1
-                let charIndex = Math.floor(normalized * 26.99); // Tránh ra ngoài mảng
+                let normalized = (clampedRoll + 60) / 120; 
+                let charIndex = Math.floor(normalized * 26.99); 
                 
                 currentLetter = alphabet[charIndex];
                 document.getElementById("selected-letter").innerText = currentLetter;
 
-                // B. Logic Nhập chữ (Click): Ngón trỏ cụp, Ngón giữa nhả
                 if (f1Bent && !f2Bent) {
-                    if (now - lastTypeTime > 600) { // Debounce 600ms chống double-click
+                    if (now - lastTypeTime > 600) { 
                         lastTypeTime = now;
                         let outBox = document.getElementById("text-output");
                         let letterToAdd = currentLetter === '_' ? ' ' : currentLetter;
                         outBox.innerText += letterToAdd;
                         
-                        // Hiệu ứng nháy màn hình khi gõ phím
                         document.getElementById("selected-letter").style.transform = "scale(0.8)";
                         setTimeout(() => {
                             document.getElementById("selected-letter").style.transform = "scale(1)";
@@ -410,7 +403,7 @@
                 indicator.innerText = "TYPING MODE: OFF";
                 indicator.className = "";
                 letterBox.className = "";
-                letterBox.innerText = "_"; // Reset hiển thị
+                letterBox.innerText = "_"; 
             }
         }
     </script>
