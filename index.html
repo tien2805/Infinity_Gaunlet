@@ -23,7 +23,7 @@
 
         body {
             background-color: var(--bg-color);
-            background-image: 
+            background-image:
                 linear-gradient(rgba(0, 229, 255, 0.05) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(0, 229, 255, 0.05) 1px, transparent 1px);
             background-size: 20px 20px;
@@ -196,15 +196,29 @@
             position: relative;
         }
 
-        #selected-letter::before, #selected-letter::after {
+        #selected-letter::before,
+        #selected-letter::after {
             content: '';
             position: absolute;
-            width: 17px; height: 17px;
+            width: 17px;
+            height: 17px;
             border: 4px solid var(--neon-cyan);
             transition: 0.2s;
         }
-        #selected-letter::before { top: -6px; left: -6px; border-right: none; border-bottom: none; }
-        #selected-letter::after { bottom: -6px; right: -6px; border-left: none; border-top: none; }
+
+        #selected-letter::before {
+            top: -6px;
+            left: -6px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        #selected-letter::after {
+            bottom: -6px;
+            right: -6px;
+            border-left: none;
+            border-top: none;
+        }
 
         .letter-active {
             color: var(--neon-cyan) !important;
@@ -310,8 +324,8 @@
     <script>
         // --- CẤU HÌNH MQTT ---
         let client;
-        const topicSub = "infinity/data";
-        const flexThreshold = 3000;
+        const topicSub = "infinity/gauntlet/sensors"; // Fixed topic to match ESP32
+        // const flexThreshold = 3000; // ESP32 already converts this to 'BENT'/'STRAIGHT'
 
         // --- BIẾN LOGIC TYPING MODE ---
         let isTypingMode = false;
@@ -375,13 +389,13 @@
 
         // --- HÀM XỬ LÝ LÕI (CORE LOGIC) ---
         function processSensors(data) {
-            const flex1 = data.flex1 || 0;
-            const flex2 = data.flex2 || 0;
+            const flex1 = data.flex1 || "STRAIGHT";
+            const flex2 = data.flex2 || "STRAIGHT";
             const roll = data.roll || 0;
             const pitch = data.pitch || 0;
 
-            const f1Bent = flex1 > flexThreshold;
-            const f2Bent = flex2 > flexThreshold;
+            const f1Bent = (flex1 === "BENT");
+            const f2Bent = (flex2 === "BENT");
 
             // 1. Cập nhật UI Cảm biến
             updateSensorUI("val-flex1", f1Bent);
