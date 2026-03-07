@@ -340,6 +340,25 @@
         let lastTypeTime = 0;
         const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_";
 
+        // --- TWEENING (HIỆU ỨNG MƯỢT SỐ DI CHUYỂN) ---
+        let currentRoll = 0, currentPitch = 0; // Giá trị đang hiển thị trên Web
+        let targetRoll = 0, targetPitch = 0;   // Giá trị thực tế nhận từ ESP32
+
+        function animateNumbers() {
+            // Toán học nội suy Lerp (Cộng dần 15% khoảng cách mỗi khung hình)
+            currentRoll += (targetRoll - currentRoll) * 0.15;
+            currentPitch += (targetPitch - currentPitch) * 0.15;
+
+            // Update UI cho Roll & Pitch
+            document.getElementById("val-roll").innerText = Math.round(currentRoll) + "°";
+            document.getElementById("val-pitch").innerText = Math.round(currentPitch) + "°";
+
+            requestAnimationFrame(animateNumbers);
+        }
+
+        // Khởi động vòng lặp hiệu ứng hình ảnh
+        animateNumbers();
+
         function connectMQTT() {
             const host = document.getElementById("mqtt-host").value;
             const port = parseInt(document.getElementById("mqtt-port").value);
@@ -403,8 +422,10 @@
             // 1. Cập nhật UI Cảm biến
             updateSensorUI("val-flex1", f1Bent);
             updateSensorUI("val-flex2", f2Bent);
-            document.getElementById("val-roll").innerText = Math.round(roll) + "°";
-            document.getElementById("val-pitch").innerText = Math.round(pitch) + "°";
+            
+            // Thay vì gán cứng (nhảy số giật cục), ta chuyển biến thành mục tiêu để vòng lặp animateNumbers tự động chạy đến
+            targetRoll = roll;
+            targetPitch = pitch;
 
             // 2. Logic "Hold 3 Seconds" để Bật/Tắt Typing Mode
             const now = Date.now();
