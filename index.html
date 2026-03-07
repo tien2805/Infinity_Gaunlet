@@ -272,8 +272,8 @@
     <header>
         <h1>INFINITY // COMMAND CENTER</h1>
         <div class="connection-bar">
-            <input type="text" id="mqtt-host" value="broker.hivemq.com" placeholder="Broker Host">
-            <input type="number" id="mqtt-port" value="8884" placeholder="Port (Default 8884)" style="width: 100px;">
+            <input type="text" id="mqtt-host" value="broker.emqx.io" placeholder="Broker Host">
+            <input type="number" id="mqtt-port" value="8084" placeholder="Port (Default 8084)" style="width: 100px;">
             <button class="btn-connect" onclick="connectMQTT()">CONNECT SYSTEM</button>
         </div>
         <div id="status-msg">SYSTEM OFFLINE. CLICK CONNECT TO START.</div>
@@ -345,13 +345,13 @@
         let targetRoll = 0, targetPitch = 0;   // Giá trị thực tế nhận từ ESP32
 
         function animateNumbers() {
-            // Toán học nội suy Lerp (Cộng dần 15% khoảng cách mỗi khung hình)
-            currentRoll += (targetRoll - currentRoll) * 0.15;
-            currentPitch += (targetPitch - currentPitch) * 0.15;
+            // Toán học nội suy Lerp (Cộng dần 10% khoảng cách mỗi khung hình)
+            currentRoll += (targetRoll - currentRoll) * 0.10;
+            currentPitch += (targetPitch - currentPitch) * 0.10;
 
-            // Update UI cho Roll & Pitch
-            document.getElementById("val-roll").innerText = Math.round(currentRoll) + "°";
-            document.getElementById("val-pitch").innerText = Math.round(currentPitch) + "°";
+            // Update UI cho Roll & Pitch (Định dạng 1 chữ số thập phân)
+            document.getElementById("val-roll").innerText = currentRoll.toFixed(1) + "°";
+            document.getElementById("val-pitch").innerText = currentPitch.toFixed(1) + "°";
 
             requestAnimationFrame(animateNumbers);
         }
@@ -372,8 +372,12 @@
             client.onMessageArrived = onMessageArrived;
 
             // ĐÃ THÊM useSSL: true ĐỂ QUA MẶT CHẾ ĐỘ BẢO MẬT CỦA VERCEL/GITHUB
+            // Tối ưu hóa Websocket để giảm nhiễu (Latency) tối đa cho Web:
             client.connect({
                 useSSL: true,
+                cleanSession: true,
+                keepAliveInterval: 30, // Gửi ping liên tục để giữ kết nối không bị ngắt quãng
+                timeout: 3,
                 onSuccess: onConnect,
                 onFailure: onFail
             });
@@ -460,7 +464,9 @@
 
             // 3. Logic Đánh chữ (Chỉ chạy khi Typing Mode bật)
             if (isTypingMode) {
-                let clampedRoll = Math.max(-60, Math.min(60, roll));
+                // Hiện tại sử dụng `currentRoll` (1 siêu mượt) để chọn chữ 
+                // Thay vì dùng `roll` nhảy loạn xạ
+                let clampedRoll = Math.max(-60, Math.min(60, currentRoll));
                 let normalized = (clampedRoll + 60) / 120;
                 let charIndex = Math.floor(normalized * 26.99);
 
