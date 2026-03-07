@@ -380,10 +380,13 @@
 
         function onMessageArrived(message) {
             try {
+                // In ra chữ thô để debug:
+                console.log("RAW MSG RECEIVE:", message.payloadString);
+                
                 const payload = JSON.parse(message.payloadString);
                 processSensors(payload);
             } catch (e) {
-                console.error("Lỗi JSON:", e);
+                console.error("Lỗi parse JSON:", e, " Nội dung lỗi là: ", message.payloadString);
             }
         }
 
