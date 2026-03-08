@@ -98,10 +98,13 @@
             display: flex;
             flex: 1;
             gap: 20px;
+            /* Update to row to match reference image side-by-side */
+            flex-direction: row; 
         }
 
         .panel {
-            flex: 1;
+            /* Left panel smaller, Right panel larger */
+            flex: 1; 
             background: var(--panel-bg);
             border: 1px solid var(--neon-cyan);
             clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
@@ -109,6 +112,14 @@
             padding: 20px;
             display: flex;
             flex-direction: column;
+        }
+        
+        /* Specific panel sizing */
+        .panel:nth-child(1) {
+            flex: 0 0 40%;
+        }
+        .panel:nth-child(2) {
+            flex: 0 0 calc(60% - 20px);
         }
 
         .panel-title {
@@ -255,9 +266,12 @@
 
 
         /* --- RESPONSIVE --- */
-        @media (max-width: 768px) {
+        @media (max-width: 900px) {
             .dashboard {
                 flex-direction: column;
+            }
+            .panel:nth-child(1), .panel:nth-child(2) {
+                flex: none;
             }
 
             #selected-letter {
@@ -297,13 +311,13 @@
             </div>
 
             <div class="sensor-row">
-                <div class="sensor-label">ROLL ANGLE (NAVIGATE)</div>
-                <div id="val-roll" class="sensor-val" style="color: var(--neon-cyan);">0°</div>
+                <div class="sensor-label">PITCH ANGLE (UP/DOWN)</div>
+                <div id="val-pitch" class="sensor-val" style="color: var(--neon-cyan);">0°</div>
             </div>
 
             <div class="sensor-row">
-                <div class="sensor-label">PITCH ANGLE</div>
-                <div id="val-pitch" class="sensor-val" style="color: var(--neon-cyan);">0°</div>
+                <div class="sensor-label">ROLL ANGLE (NAVIGATE)</div>
+                <div id="val-roll" class="sensor-val" style="color: var(--neon-cyan);">0°</div>
             </div>
         <div class="panel">
             <div class="panel-title">VIRTUAL TERMINAL</div>
@@ -349,9 +363,9 @@
             currentRoll += (targetRoll - currentRoll) * 0.10;
             currentPitch += (targetPitch - currentPitch) * 0.10;
 
-            // Update UI cho Roll & Pitch (Định dạng 1 chữ số thập phân)
-            document.getElementById("val-roll").innerText = currentRoll.toFixed(1) + "°";
+            // Đã đổi chỗ Pitch và Roll theo yêu cầu để khớp với Web UI
             document.getElementById("val-pitch").innerText = currentPitch.toFixed(1) + "°";
+            document.getElementById("val-roll").innerText = currentRoll.toFixed(1) + "°";
 
             requestAnimationFrame(animateNumbers);
         }
