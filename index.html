@@ -103,8 +103,7 @@
         }
 
         .panel {
-            /* Left panel smaller, Right panel larger */
-            flex: 1; 
+            flex: 1;
             background: var(--panel-bg);
             border: 1px solid var(--neon-cyan);
             clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
@@ -112,14 +111,6 @@
             padding: 20px;
             display: flex;
             flex-direction: column;
-        }
-        
-        /* Specific panel sizing */
-        .panel:nth-child(1) {
-            flex: 0 0 40%;
-        }
-        .panel:nth-child(2) {
-            flex: 0 0 calc(60% - 20px);
         }
 
         .panel-title {
@@ -266,12 +257,9 @@
 
 
         /* --- RESPONSIVE --- */
-        @media (max-width: 900px) {
+        @media (max-width: 768px) {
             .dashboard {
                 flex-direction: column;
-            }
-            .panel:nth-child(1), .panel:nth-child(2) {
-                flex: none;
             }
 
             #selected-letter {
