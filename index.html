@@ -147,151 +147,18 @@
             text-shadow: 0 0 5px var(--neon-orange), 0 0 10px var(--neon-orange), 0 0 20px var(--neon-orange);
         }
 
-        /* --- TYPING MODE UI --- */
-        .typing-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            flex: 1;
-            position: relative;
-        }
 
-        #mode-indicator {
-            font-size: 20px;
-            font-weight: bold;
-            color: #555;
-            margin-bottom: 10px;
-            transition: 0.3s;
-        }
-
-        .mode-active {
-            color: var(--neon-purple) !important;
-            text-shadow: 0 0 20px var(--neon-purple);
-            animation: pulse 1.5s infinite;
-        }
-
-        #hold-feedback {
-            color: var(--neon-orange);
-            font-size: 14px;
-            height: 20px;
-            margin-bottom: 15px;
-        }
-
-        #selected-letter {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 80px;
-            font-weight: 900;
-            color: var(--text-main);
-            text-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
-            background: rgba(0, 229, 255, 0.05);
-            box-shadow: 0 0 0 2px var(--neon-cyan);
-            width: 120px;
-            height: 120px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 20px;
-            transition: 0.2s;
-            position: relative;
-        }
-
-        #selected-letter::before,
-        #selected-letter::after {
-            content: '';
-            position: absolute;
-            width: 17px;
-            height: 17px;
-            border: 4px solid var(--neon-cyan);
-            transition: 0.2s;
-        }
-
-        #selected-letter::before {
-            top: -6px;
-            left: -6px;
-            border-right: none;
-            border-bottom: none;
-        }
-
-        #selected-letter::after {
-            bottom: -6px;
-            right: -6px;
-            border-left: none;
-            border-top: none;
-        }
-
-        .letter-active {
-            color: var(--neon-cyan) !important;
-            text-shadow: 0 0 20px var(--neon-cyan) !important;
-            box-shadow: inset 0 0 40px rgba(0, 229, 255, 0.4), 0 0 0 2px var(--neon-cyan) !important;
-        }
-
-        #text-output {
-            width: 100%;
-            min-height: 100px;
-            background: rgba(0, 0, 0, 0.8);
-            border: 1px solid var(--neon-purple);
-            color: var(--text-main);
-            padding: 15px;
-            font-size: 20px;
-            font-family: 'Share Tech Mono', monospace;
-            box-sizing: border-box;
-            border-radius: 5px;
-            word-wrap: break-word;
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.5;
-            }
-        }
-
-        /* --- VIRTUAL CURSOR --- */
-        #virtual-cursor {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            pointer-events: none; /* Khác click xuyên qua */
-            background: rgba(0, 229, 255, 0.4);
-            border: 2px solid var(--neon-cyan);
-            border-radius: 50%;
-            z-index: 9999;
-            transform: translate(-50%, -50%); /* Căn giữa toạ độ */
-            box-shadow: 0 0 15px var(--neon-cyan);
-            transition: transform 0.1s ease-out, background 0.1s;
-            display: none; /* Chỉ hiện khi Web Load xong / Offline Mouse Off */
-        }
-        
-        .cursor-click {
-            transform: translate(-50%, -50%) scale(0.5) !important;
-            background: rgba(255, 255, 255, 1) !important;
-            box-shadow: 0 0 30px white !important;
-        }
 
         /* --- RESPONSIVE --- */
         @media (max-width: 768px) {
             .dashboard {
                 flex-direction: column;
             }
-
-            #selected-letter {
-                font-size: 60px;
-                width: 100px;
-                height: 100px;
-            }
         }
     </style>
 </head>
 
 <body>
-    <!-- CON TRỎ CHUỘT ẢO -->
-    <div id="virtual-cursor"></div>
 
     <header>
         <h1>INFINITY // COMMAND CENTER</h1>
@@ -329,19 +196,7 @@
             </div>
         </div>
 
-        <div class="panel">
-            <div class="panel-title">VIRTUAL TERMINAL</div>
 
-            <div class="typing-container">
-                <div id="mode-indicator">TYPING MODE: OFF</div>
-                <div id="hold-feedback"></div>
-
-                <div id="selected-letter">_</div>
-
-                <div style="width: 100%; margin-bottom: 5px; color: #888; font-size: 12px;">INCOMING TRANSMISSION:</div>
-                <div id="text-output"></div>
-            </div>
-        </div>
 
     </div>
 
@@ -351,27 +206,11 @@
         const topicSub = "infinity/gauntlet/sensors"; // Fixed topic to match ESP32
         // const flexThreshold = 3000; // ESP32 already converts this to 'BENT'/'STRAIGHT'
 
-        // --- BIẾN LOGIC TYPING MODE ---
-        let isTypingMode = false;
 
-        // Timer Logic
-        let isHolding = false;
-        let holdStartTime = 0;
-        let cooldownUntil = 0;
-
-        // Keystroke Logic
-        let currentLetter = 'A';
-        let lastTypeTime = 0;
-        const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_";
 
         // --- TWEENING (HIỆU ỨNG MƯỢT SỐ DI CHUYỂN) ---
         let currentRoll = 0, currentPitch = 0; // Giá trị đang hiển thị trên Web
         let targetRoll = 0, targetPitch = 0;   // Giá trị thực tế nhận từ ESP32
-
-        // MOUSE LOGIC VARIABLES
-        let cursorX = window.innerWidth / 2;
-        let cursorY = window.innerHeight / 2;
-        let prevF1Bent = false; // Nhớ click cũ để không click bồi nhiều lần 
 
         function animateNumbers() {
             // Toán học nội suy Lerp (Cộng dần 10% khoảng cách mỗi khung hình)
@@ -381,38 +220,6 @@
             // Update UI cho Roll & Pitch (Định dạng 1 chữ số thập phân)
             document.getElementById("val-roll").innerText = currentRoll.toFixed(1) + "°";
             document.getElementById("val-pitch").innerText = currentPitch.toFixed(1) + "°";
-
-            // VIRTUAL MOUSE UI UPDATE (Chỉ chạy khi kết nối)
-            if (client && client.isConnected()) {
-                document.getElementById("virtual-cursor").style.display = "block";
-                
-                // Trọng số chết (Deadzone): Tay nghiêng < 5~8 độ xem như bất động
-                let deadzone = 8;
-                let vx = 0; let vy = 0;
-
-                if (Math.abs(currentRoll) > deadzone) {
-                    // Roll nghiêng trái/phải -> X speed
-                    vx = (currentRoll > 0 ? currentRoll - deadzone : currentRoll + deadzone) * 0.35;
-                }
-                
-                if (Math.abs(currentPitch) > deadzone) {
-                    // Pitch chúi lên/xuống -> Y speed (Do HTML tọa độ Y hướng xuống dưới, nên Pitch có thể ngược, tuỳ trục của MPU)
-                    vy = (currentPitch > 0 ? currentPitch - deadzone : currentPitch + deadzone) * -0.35; 
-                }
-
-                cursorX += vx;
-                cursorY += vy;
-
-                // Khoá biên giới (Tránh con trỏ văng ra khỏi mành hình)
-                cursorX = Math.max(0, Math.min(window.innerWidth, cursorX));
-                cursorY = Math.max(0, Math.min(window.innerHeight, cursorY));
-
-                let vCursor = document.getElementById("virtual-cursor");
-                vCursor.style.left = cursorX + "px";
-                vCursor.style.top = cursorY + "px";
-            } else {
-                document.getElementById("virtual-cursor").style.display = "none";
-            }
 
             requestAnimationFrame(animateNumbers);
         }
@@ -491,87 +298,6 @@
             // Thay vì gán cứng (nhảy số giật cục), ta chuyển biến thành mục tiêu để vòng lặp animateNumbers tự động chạy đến
             targetRoll = roll;
             targetPitch = pitch;
-
-            // 2. Logic "Hold 3 Seconds" để Bật/Tắt Typing Mode
-            const now = Date.now();
-
-            if (f1Bent && f2Bent) {
-                if (now > cooldownUntil) {
-                    if (!isHolding) {
-                        isHolding = true;
-                        holdStartTime = now;
-                    }
-
-                    let holdDuration = now - holdStartTime;
-
-                    if (holdDuration >= 3000) {
-                        toggleTypingMode();
-                        isHolding = false;
-                        document.getElementById("hold-feedback").innerText = "MODE SWITCHED!";
-                        cooldownUntil = now + 2000;
-                    } else {
-                        document.getElementById("hold-feedback").innerText = `HOLDING TO TOGGLE... ${(holdDuration / 1000).toFixed(1)}s / 3.0s`;
-                    }
-                }
-            } else {
-                if (isHolding) {
-                    isHolding = false;
-                    document.getElementById("hold-feedback").innerText = "HOLD CANCELED";
-                    setTimeout(() => {
-                        if (!isHolding) document.getElementById("hold-feedback").innerText = "";
-                    }, 1000);
-                }
-            }
-
-            // 3. Logic Đánh chữ (Chỉ chạy khi Typing Mode bật)
-            if (isTypingMode) {
-                // Hiện tại sử dụng `currentRoll` (1 siêu mượt) để chọn chữ 
-                // Thay vì dùng `roll` nhảy loạn xạ
-                let clampedRoll = Math.max(-60, Math.min(60, currentRoll));
-                let normalized = (clampedRoll + 60) / 120;
-                let charIndex = Math.floor(normalized * 26.99);
-
-                currentLetter = alphabet[charIndex];
-                document.getElementById("selected-letter").innerText = currentLetter;
-
-                if (f1Bent && !f2Bent) {
-                    if (now - lastTypeTime > 600) {
-                        lastTypeTime = now;
-                        let outBox = document.getElementById("text-output");
-                        let letterToAdd = currentLetter === '_' ? ' ' : currentLetter;
-                        outBox.innerText += letterToAdd;
-
-                        document.getElementById("selected-letter").style.transform = "scale(0.8)";
-                        setTimeout(() => {
-                            document.getElementById("selected-letter").style.transform = "scale(1)";
-                        }, 100);
-                    }
-                }
-            } else {
-                // CHẾ ĐỘ MOUSE MODE (Khi Typing OFF)
-                // Chỉ Click MỘT LẦN khi ngón trỏ VỪA gập (Pulse Click)
-                if (f1Bent && !prevF1Bent && !f2Bent) {
-                    simulateClick(cursorX, cursorY);
-                }
-            }
-            
-            // Cập nhật tình trạng ngón trỏ vào quá khứ (Cho bộ lọc Click)
-            prevF1Bent = f1Bent;
-        }
-
-        // --- HÀM GIẢ LẬP NHẤN CHUỘT TRÊN MÀN HÌNH ---
-        function simulateClick(x, y) {
-            let el = document.elementFromPoint(x, y);
-            if (el) {
-                el.click(); // Gọi thẳng đến DOM button/input bên dưới vị trí hiện tại
-                el.focus(); // Tập trung focus nếu là input text
-            }
-            // Add hiệu ứng chớp tắt siêu phàm
-            let cursorEl = document.getElementById("virtual-cursor");
-            cursorEl.classList.add("cursor-click");
-            setTimeout(() => {
-                cursorEl.classList.remove("cursor-click");
-            }, 150);
         }
 
         // Cập nhật đổi màu trạng thái Flex
@@ -586,22 +312,7 @@
             }
         }
 
-        function toggleTypingMode() {
-            isTypingMode = !isTypingMode;
-            let indicator = document.getElementById("mode-indicator");
-            let letterBox = document.getElementById("selected-letter");
 
-            if (isTypingMode) {
-                indicator.innerText = "TYPING MODE: ACTIVE";
-                indicator.className = "mode-active";
-                letterBox.className = "letter-active";
-            } else {
-                indicator.innerText = "TYPING MODE: OFF";
-                indicator.className = "";
-                letterBox.className = "";
-                letterBox.innerText = "_";
-            }
-        }
     </script>
 </body>
 
