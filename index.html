@@ -272,6 +272,8 @@
         /* --- VIRTUAL CURSOR & EFFECTS --- */
         #virtual-cursor {
             position: fixed;
+            top: 0;
+            left: 0;
             width: 25px;
             height: 25px;
             border: 2px solid var(--neon-cyan);
@@ -280,9 +282,8 @@
             box-shadow: 0 0 10px var(--neon-cyan), 0 0 20px var(--neon-cyan);
             pointer-events: none;
             z-index: 9999;
-            transform: translate(-50%, -50%);
             display: none; /* Hidden by default */
-            transition: transform 0.1s ease-out;
+            will-change: transform;
         }
 
         #virtual-cursor::after {
@@ -425,8 +426,14 @@
         // Cursor Logic
         let cursorX = window.innerWidth / 2;
         let cursorY = window.innerHeight / 2;
-        const CURSOR_SPEED = 15;
+        const CURSOR_SENSITIVITY = 3.0; // Giống promouse.ino
         const DEAD_ZONE = 3.0;
+
+        // --- CURSOR SMOOTHING (tách riêng khỏi BLE callback) ---
+        let targetCursorRoll = 0;   // Giá trị thô từ BLE
+        let targetCursorPitch = 0;
+        let smoothCursorRoll = 0;   // Giá trị đã smooth riêng cho cursor
+        let smoothCursorPitch = 0;
 
         // Timer Logic
         let isHolding = false;
@@ -455,8 +462,42 @@
             requestAnimationFrame(animateNumbers);
         }
 
-        // Khởi động vòng lặp hiệu ứng hình ảnh
+        // --- VÒNG LẶP CURSOR 60FPS (tách riêng khỏi BLE) ---
+        function animateCursor() {
+            if (currentMode === 2) { // CURSOR MODE
+                // Lerp riêng cho cursor (alpha=0.25 = phản hồi nhanh hơn số hiển thị)
+                smoothCursorRoll += (targetCursorRoll - smoothCursorRoll) * 0.25;
+                smoothCursorPitch += (targetCursorPitch - smoothCursorPitch) * 0.25;
+
+                // Tính moveX/moveY giống promouse.ino: constrain(angle * SENSITIVITY / 10.0)
+                let moveX = 0;
+                let moveY = 0;
+
+                if (Math.abs(smoothCursorRoll) > DEAD_ZONE) {
+                    moveX = Math.max(-127, Math.min(127, smoothCursorRoll * CURSOR_SENSITIVITY / 10.0));
+                }
+                if (Math.abs(smoothCursorPitch) > DEAD_ZONE) {
+                    moveY = Math.max(-127, Math.min(127, -smoothCursorPitch * CURSOR_SENSITIVITY / 10.0));
+                }
+
+                // Cập nhật vị trí tích lũy (incremental, giống HID mouse)
+                cursorX += moveX;
+                cursorY += moveY;
+
+                // Giới hạn trong màn hình
+                cursorX = Math.max(0, Math.min(window.innerWidth, cursorX));
+                cursorY = Math.max(0, Math.min(window.innerHeight, cursorY));
+
+                // Di chuyển bằng transform (GPU-accelerated, mượt hơn left/top)
+                const cursorEl = document.getElementById('virtual-cursor');
+                cursorEl.style.transform = `translate(${cursorX - 12.5}px, ${cursorY - 12.5}px)`;
+            }
+            requestAnimationFrame(animateCursor);
+        }
+
+        // Khởi động cả 2 vòng lặp hiệu ứng
         animateNumbers();
+        animateCursor();
 
         // ==========================================
         // KẾT NỐI BLE - LẦN ĐẦU (Cần bấm nút)
@@ -740,25 +781,11 @@
 
             // 4. Logic Chuột ảo (Chỉ chạy khi Cursor Mode bật)
             if (currentMode === 2) { // CURSOR MODE
-                // Di chuyển cursor dựa trên góc nghiêng (lerp targetRoll/targetPitch đã có)
-                if (Math.abs(currentRoll) > DEAD_ZONE) {
-                    cursorX += (currentRoll / 10) * CURSOR_SPEED;
-                }
-                if (Math.abs(currentPitch) > DEAD_ZONE) {
-                    // Invert pitch: positive pitch moves cursor UP (negative Y change)
-                    cursorY -= (currentPitch / 10) * CURSOR_SPEED;
-                }
+                // Chỉ cập nhật target góc — animateCursor() sẽ xử lý di chuyển mượt ở 60FPS
+                targetCursorRoll = roll;
+                targetCursorPitch = pitch;
 
-                // Giới hạn trong màn hình
-                cursorX = Math.max(0, Math.min(window.innerWidth, cursorX));
-                cursorY = Math.max(0, Math.min(window.innerHeight, cursorY));
-
-                // Cập nhật vị trí UI
-                const cursorEl = document.getElementById('virtual-cursor');
-                cursorEl.style.left = cursorX + 'px';
-                cursorEl.style.top = cursorY + 'px';
-
-                // Logic Click
+                // Logic Click (giữ nguyên trong BLE callback vì cần phản hồi tức thì)
                 if (now - lastClickTime > 500) {
                     if (f1Bent && !f2Bent) { // Left Click
                         createRipple(cursorX, cursorY, 'var(--neon-cyan)');
@@ -819,6 +846,11 @@
                 // Reset cursor về giữa màn hình khi bật
                 cursorX = window.innerWidth / 2;
                 cursorY = window.innerHeight / 2;
+                // Reset smooth values để tránh nhảy
+                smoothCursorRoll = 0;
+                smoothCursorPitch = 0;
+                targetCursorRoll = 0;
+                targetCursorPitch = 0;
             } else {
                 letterBox.innerText = "_";
             }
