@@ -367,7 +367,7 @@
         animateNumbers();
 
         // ==========================================
-        // KẾT NỐI BLE (Thay thế connectMQTT)
+        // KẾT NỐI BLE - LẦN ĐẦU (Cần bấm nút)
         // ==========================================
         async function connectBLE() {
             try {
@@ -375,38 +375,14 @@
                 statusEl.innerText = 'SCANNING FOR BLUETOOTH DEVICES...';
                 statusEl.style.color = '#FF9900';
 
-                // Bước 1: Yêu cầu người dùng chọn thiết bị BLE
-                // Bộ lọc theo Service UUID để chỉ hiện ESP32 Infinity Gauntlet
+                // Yêu cầu người dùng chọn thiết bị (chỉ cần 1 lần duy nhất)
                 bleDevice = await navigator.bluetooth.requestDevice({
                     filters: [{ services: [SERVICE_UUID] }],
                     optionalServices: [SERVICE_UUID]
                 });
 
-                // Lắng nghe sự kiện ngắt kết nối
-                bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
-
-                statusEl.innerText = 'CONNECTING TO ' + bleDevice.name + '...';
-
-                // Bước 2: Kết nối GATT Server
-                const server = await bleDevice.gatt.connect();
-
-                // Bước 3: Lấy Service
-                const service = await server.getPrimaryService(SERVICE_UUID);
-
-                // Bước 4: Lấy Characteristic
-                bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-
-                // Bước 5: Bật Notifications (tương đương subscribe MQTT)
-                await bleCharacteristic.startNotifications();
-                bleCharacteristic.addEventListener('characteristicvaluechanged', onBLEData);
-
-                // Cập nhật UI
-                statusEl.innerText = 'SYSTEM ONLINE — CONNECTED VIA BLUETOOTH (' + bleDevice.name + ')';
-                statusEl.style.color = '#00FF00';
-                document.getElementById('btn-ble').style.display = 'none';
-                document.getElementById('btn-disconnect').style.display = 'inline-block';
-
-                console.log('BLE Connected to:', bleDevice.name);
+                // Sau khi chọn xong, kết nối
+                await finishConnection(bleDevice);
 
             } catch (error) {
                 const statusEl = document.getElementById('status-msg');
@@ -421,9 +397,94 @@
         }
 
         // ==========================================
+        // HÀM KẾT NỐI CHUNG (dùng cho cả lần đầu và auto-reconnect)
+        // ==========================================
+        let autoReconnectTimer = null;
+
+        async function finishConnection(device) {
+            const statusEl = document.getElementById('status-msg');
+
+            // Lắng nghe sự kiện ngắt kết nối
+            device.addEventListener('gattserverdisconnected', onDisconnected);
+
+            statusEl.innerText = 'CONNECTING TO ' + (device.name || 'ESP32') + '...';
+            statusEl.style.color = '#FF9900';
+
+            // Kết nối GATT Server
+            const server = await device.gatt.connect();
+
+            // Lấy Service + Characteristic
+            const service = await server.getPrimaryService(SERVICE_UUID);
+            bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+            // Bật Notifications
+            await bleCharacteristic.startNotifications();
+            bleCharacteristic.addEventListener('characteristicvaluechanged', onBLEData);
+
+            // Cập nhật UI
+            statusEl.innerText = 'SYSTEM ONLINE — CONNECTED VIA BLUETOOTH (' + (device.name || 'ESP32') + ')';
+            statusEl.style.color = '#00FF00';
+            document.getElementById('btn-ble').style.display = 'none';
+            document.getElementById('btn-disconnect').style.display = 'inline-block';
+
+            // Dừng auto-reconnect nếu đang chạy
+            if (autoReconnectTimer) {
+                clearInterval(autoReconnectTimer);
+                autoReconnectTimer = null;
+            }
+
+            console.log('BLE Connected to:', device.name);
+        }
+
+        // ==========================================
+        // TỰ ĐỘNG KẾT NỐI LẠI (Auto-Reconnect)
+        // Dùng getDevices() để tìm thiết bị đã pair trước đó
+        // ==========================================
+        async function autoReconnect() {
+            const statusEl = document.getElementById('status-msg');
+
+            // Kiểm tra trình duyệt có hỗ trợ getDevices() không
+            if (!navigator.bluetooth || !navigator.bluetooth.getDevices) {
+                console.log('getDevices() not supported. Manual connect required.');
+                return false;
+            }
+
+            try {
+                // Lấy danh sách thiết bị đã pair trước đó
+                const devices = await navigator.bluetooth.getDevices();
+                console.log('Previously paired devices:', devices.length);
+
+                for (const device of devices) {
+                    console.log('Found paired device:', device.name, device.id);
+
+                    // Thử kết nối lại
+                    try {
+                        statusEl.innerText = 'AUTO-RECONNECTING TO ' + (device.name || 'ESP32') + '...';
+                        statusEl.style.color = '#FF9900';
+
+                        bleDevice = device;
+                        await finishConnection(device);
+                        return true; // Kết nối thành công!
+                    } catch (err) {
+                        console.log('Auto-reconnect failed for', device.name, ':', err.message);
+                    }
+                }
+            } catch (err) {
+                console.log('Auto-reconnect error:', err.message);
+            }
+
+            return false; // Không kết nối được
+        }
+
+        // ==========================================
         // NGẮT KẾT NỐI BLE
         // ==========================================
         function disconnectBLE() {
+            // Dừng auto-reconnect
+            if (autoReconnectTimer) {
+                clearInterval(autoReconnectTimer);
+                autoReconnectTimer = null;
+            }
             if (bleDevice && bleDevice.gatt.connected) {
                 bleDevice.gatt.disconnect();
             }
@@ -431,27 +492,50 @@
 
         function onDisconnected() {
             const statusEl = document.getElementById('status-msg');
-            statusEl.innerText = 'BLUETOOTH DISCONNECTED. CLICK CONNECT TO RECONNECT.';
-            statusEl.style.color = 'red';
+            statusEl.innerText = 'BLUETOOTH DISCONNECTED. AUTO-RECONNECTING...';
+            statusEl.style.color = '#FF9900';
             document.getElementById('btn-ble').style.display = 'inline-block';
             document.getElementById('btn-disconnect').style.display = 'none';
             bleCharacteristic = null;
-            console.log('BLE Disconnected');
+            console.log('BLE Disconnected. Starting auto-reconnect...');
+
+            // Tự động thử kết nối lại mỗi 3 giây
+            if (!autoReconnectTimer) {
+                autoReconnectTimer = setInterval(async () => {
+                    console.log('Attempting auto-reconnect...');
+                    const success = await autoReconnect();
+                    if (success) {
+                        clearInterval(autoReconnectTimer);
+                        autoReconnectTimer = null;
+                    }
+                }, 3000);
+            }
         }
 
         // ==========================================
-        // NHẬN DỮ LIỆU TỪ BLE (Thay thế onMessageArrived)
+        // KHI TRANG WEB LOAD → TỰ ĐỘNG TÌM VÀ KẾT NỐI
+        // ==========================================
+        window.addEventListener('load', async () => {
+            const statusEl = document.getElementById('status-msg');
+            statusEl.innerText = 'SEARCHING FOR PREVIOUSLY PAIRED DEVICE...';
+            statusEl.style.color = '#FF9900';
+
+            const success = await autoReconnect();
+            if (!success) {
+                statusEl.innerText = 'NO PAIRED DEVICE FOUND. CLICK CONNECT TO PAIR FOR THE FIRST TIME.';
+                statusEl.style.color = '#888';
+            }
+        });
+
+        // ==========================================
+        // NHẬN DỮ LIỆU TỪ BLE
         // ==========================================
         function onBLEData(event) {
             try {
-                // Giải mã dữ liệu BLE (ArrayBuffer → String)
                 const decoder = new TextDecoder('utf-8');
                 const jsonString = decoder.decode(event.target.value);
-
-                // Debug log
                 console.log('BLE RAW DATA:', jsonString);
 
-                // Parse JSON (format giữ nguyên từ ESP32)
                 const payload = JSON.parse(jsonString);
                 processSensors(payload);
             } catch (e) {
