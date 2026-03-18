@@ -462,14 +462,15 @@
             requestAnimationFrame(animateNumbers);
         }
 
-        // --- VÒNG LẶP CURSOR 60FPS (tách riêng khỏi BLE) ---
+        // --- VONG LAP CURSOR 60FPS (tach rieng khoi BLE) ---
+        const cursorDomEl = document.getElementById('virtual-cursor');
         function animateCursor() {
-            if (currentMode === 2) { // CURSOR MODE
-                // Lerp riêng cho cursor (alpha=0.25 = phản hồi nhanh hơn số hiển thị)
+            if (currentMode === 2) {
+                // Lerp rieng cho cursor (alpha=0.25)
                 smoothCursorRoll += (targetCursorRoll - smoothCursorRoll) * 0.25;
                 smoothCursorPitch += (targetCursorPitch - smoothCursorPitch) * 0.25;
 
-                // Tính moveX/moveY giống promouse.ino: constrain(angle * SENSITIVITY / 10.0)
+                // Tinh moveX/moveY giong promouse.ino
                 let moveX = 0;
                 let moveY = 0;
 
@@ -480,17 +481,13 @@
                     moveY = Math.max(-127, Math.min(127, -smoothCursorPitch * CURSOR_SENSITIVITY / 10.0));
                 }
 
-                // Cập nhật vị trí tích lũy (incremental, giống HID mouse)
                 cursorX += moveX;
                 cursorY += moveY;
 
-                // Giới hạn trong màn hình
                 cursorX = Math.max(0, Math.min(window.innerWidth, cursorX));
                 cursorY = Math.max(0, Math.min(window.innerHeight, cursorY));
 
-                // Di chuyển bằng transform (GPU-accelerated, mượt hơn left/top)
-                const cursorEl = document.getElementById('virtual-cursor');
-                cursorEl.style.transform = `translate(${cursorX - 12.5}px, ${cursorY - 12.5}px)`;
+                cursorDomEl.style.transform = `translate(${cursorX - 12.5}px, ${cursorY - 12.5}px)`;
             }
             requestAnimationFrame(animateCursor);
         }
@@ -664,21 +661,22 @@
         // NHẬN DỮ LIỆU TỪ BLE
         // ==========================================
         function onBLEData(event) {
+            let jsonString = '';
             try {
                 const decoder = new TextDecoder('utf-8');
-                const jsonString = decoder.decode(event.target.value);
-                // console.log('BLE RAW DATA:', jsonString);
+                jsonString = decoder.decode(event.target.value);
+                console.log('BLE RAW:', jsonString);
 
                 const payload = JSON.parse(jsonString);
                 
-                // Xử lý Snap (Búng tay)
+                // Xu ly Snap
                 if (payload.snap === true) {
                     triggerSnapEffect();
                 }
 
                 processSensors(payload);
             } catch (e) {
-                console.error('Lỗi parse BLE data:', e);
+                console.error('BLE parse error:', e, '| raw:', jsonString);
             }
         }
 
@@ -707,19 +705,19 @@
 
         // --- HÀM XỬ LÝ LÕI (CORE LOGIC) ---
         function processSensors(data) {
-            const flex1 = data.flex1 || "STRAIGHT";
-            const flex2 = data.flex2 || "STRAIGHT";
-            const roll = data.roll || 0;
-            const pitch = data.pitch || 0;
+            const flex1 = data.flex1 ?? "STRAIGHT";
+            const flex2 = data.flex2 ?? "STRAIGHT";
+            const roll = (data.roll !== undefined && data.roll !== null) ? Number(data.roll) : 0;
+            const pitch = (data.pitch !== undefined && data.pitch !== null) ? Number(data.pitch) : 0;
 
             const f1Bent = (flex1 === "BENT");
             const f2Bent = (flex2 === "BENT");
 
-            // 1. Cập nhật UI Cảm biến
+            // 1. Cap nhat UI Cam bien
             updateSensorUI("val-flex1", f1Bent);
             updateSensorUI("val-flex2", f2Bent);
             
-            // Thay vì gán cứng (nhảy số giật cục), ta chuyển biến thành mục tiêu để vòng lặp animateNumbers tự động chạy đến
+            // Gan target de vong lap animateNumbers tu dong chay den
             targetRoll = roll;
             targetPitch = pitch;
 
