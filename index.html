@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>INFINITY GAUNTLET - JARVIS HUD</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <!-- Web Bluetooth API - Không cần thư viện bên ngoài -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
@@ -276,11 +276,10 @@
     <header>
         <h1>INFINITY // COMMAND CENTER</h1>
         <div class="connection-bar">
-            <input type="text" id="mqtt-host" value="broker.emqx.io" placeholder="Broker Host">
-            <input type="number" id="mqtt-port" value="8084" placeholder="Port (Default 8084)" style="width: 100px;">
-            <button class="btn-connect" onclick="connectMQTT()">CONNECT SYSTEM</button>
+            <button class="btn-connect" id="btn-ble" onclick="connectBLE()">CONNECT VIA BLUETOOTH</button>
+            <button class="btn-connect" id="btn-disconnect" onclick="disconnectBLE()" style="display:none; border-color: var(--neon-red); color: var(--neon-red);">DISCONNECT</button>
         </div>
-        <div id="status-msg">SYSTEM OFFLINE. CLICK CONNECT TO START.</div>
+        <div id="status-msg">SYSTEM OFFLINE. CLICK CONNECT TO PAIR VIA BLUETOOTH.</div>
     </header>
 
     <div class="dashboard">
@@ -325,10 +324,15 @@
     </div>
 
     <script>
-        // --- CẤU HÌNH MQTT ---
-        let client;
-        const topicSub = "infinity/gauntlet/sensors"; // Fixed topic to match ESP32
-        // const flexThreshold = 3000; // ESP32 already converts this to 'BENT'/'STRAIGHT'
+        // ==========================================
+        // CẤU HÌNH BLE (Web Bluetooth API)
+        // UUID phải khớp với INFINITYGAUNLET.ino
+        // ==========================================
+        const SERVICE_UUID        = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+        const CHARACTERISTIC_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+
+        let bleDevice = null;
+        let bleCharacteristic = null;
 
         // --- BIẾN LOGIC TYPING MODE ---
         let isTypingMode = false;
@@ -362,57 +366,96 @@
         // Khởi động vòng lặp hiệu ứng hình ảnh
         animateNumbers();
 
-        function connectMQTT() {
-            const host = document.getElementById("mqtt-host").value;
-            const port = parseInt(document.getElementById("mqtt-port").value);
-            const clientId = "infinity_web_" + Math.floor(Math.random() * 10000);
+        // ==========================================
+        // KẾT NỐI BLE (Thay thế connectMQTT)
+        // ==========================================
+        async function connectBLE() {
+            try {
+                const statusEl = document.getElementById('status-msg');
+                statusEl.innerText = 'SCANNING FOR BLUETOOTH DEVICES...';
+                statusEl.style.color = '#FF9900';
 
-            document.getElementById("status-msg").innerText = "CONNECTING TO " + host + " (WSS)...";
-            document.getElementById("status-msg").style.color = "#FF9900";
+                // Bước 1: Yêu cầu người dùng chọn thiết bị BLE
+                // Bộ lọc theo Service UUID để chỉ hiện ESP32 Infinity Gauntlet
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: [SERVICE_UUID] }],
+                    optionalServices: [SERVICE_UUID]
+                });
 
-            client = new Paho.MQTT.Client(host, port, clientId);
-            client.onConnectionLost = onConnectionLost;
-            client.onMessageArrived = onMessageArrived;
+                // Lắng nghe sự kiện ngắt kết nối
+                bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
 
-            // ĐÃ THÊM useSSL: true ĐỂ QUA MẶT CHẾ ĐỘ BẢO MẬT CỦA VERCEL/GITHUB
-            // Tối ưu hóa Websocket để giảm nhiễu (Latency) tối đa cho Web:
-            client.connect({
-                useSSL: true,
-                cleanSession: true,
-                keepAliveInterval: 30, // Gửi ping liên tục để giữ kết nối không bị ngắt quãng
-                timeout: 3,
-                onSuccess: onConnect,
-                onFailure: onFail
-            });
-        }
+                statusEl.innerText = 'CONNECTING TO ' + bleDevice.name + '...';
 
-        function onConnect() {
-            document.getElementById("status-msg").innerText = "SYSTEM ONLINE - CONNECTED VIA SECURE WEBSOCKET";
-            document.getElementById("status-msg").style.color = "#00FF00";
-            client.subscribe(topicSub);
-        }
+                // Bước 2: Kết nối GATT Server
+                const server = await bleDevice.gatt.connect();
 
-        function onFail(responseObject) {
-            document.getElementById("status-msg").innerText = "CONNECTION FAILED: " + responseObject.errorMessage;
-            document.getElementById("status-msg").style.color = "red";
-        }
+                // Bước 3: Lấy Service
+                const service = await server.getPrimaryService(SERVICE_UUID);
 
-        function onConnectionLost(responseObject) {
-            if (responseObject.errorCode !== 0) {
-                document.getElementById("status-msg").innerText = "CONNECTION LOST. PLEASE RECONNECT.";
-                document.getElementById("status-msg").style.color = "red";
+                // Bước 4: Lấy Characteristic
+                bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+                // Bước 5: Bật Notifications (tương đương subscribe MQTT)
+                await bleCharacteristic.startNotifications();
+                bleCharacteristic.addEventListener('characteristicvaluechanged', onBLEData);
+
+                // Cập nhật UI
+                statusEl.innerText = 'SYSTEM ONLINE — CONNECTED VIA BLUETOOTH (' + bleDevice.name + ')';
+                statusEl.style.color = '#00FF00';
+                document.getElementById('btn-ble').style.display = 'none';
+                document.getElementById('btn-disconnect').style.display = 'inline-block';
+
+                console.log('BLE Connected to:', bleDevice.name);
+
+            } catch (error) {
+                const statusEl = document.getElementById('status-msg');
+                if (error.name === 'NotFoundError') {
+                    statusEl.innerText = 'NO DEVICE SELECTED. TRY AGAIN.';
+                } else {
+                    statusEl.innerText = 'CONNECTION FAILED: ' + error.message;
+                }
+                statusEl.style.color = 'red';
+                console.error('BLE Error:', error);
             }
         }
 
-        function onMessageArrived(message) {
+        // ==========================================
+        // NGẮT KẾT NỐI BLE
+        // ==========================================
+        function disconnectBLE() {
+            if (bleDevice && bleDevice.gatt.connected) {
+                bleDevice.gatt.disconnect();
+            }
+        }
+
+        function onDisconnected() {
+            const statusEl = document.getElementById('status-msg');
+            statusEl.innerText = 'BLUETOOTH DISCONNECTED. CLICK CONNECT TO RECONNECT.';
+            statusEl.style.color = 'red';
+            document.getElementById('btn-ble').style.display = 'inline-block';
+            document.getElementById('btn-disconnect').style.display = 'none';
+            bleCharacteristic = null;
+            console.log('BLE Disconnected');
+        }
+
+        // ==========================================
+        // NHẬN DỮ LIỆU TỪ BLE (Thay thế onMessageArrived)
+        // ==========================================
+        function onBLEData(event) {
             try {
-                // In ra chữ thô để debug:
-                console.log("RAW MSG RECEIVE:", message.payloadString);
-                
-                const payload = JSON.parse(message.payloadString);
+                // Giải mã dữ liệu BLE (ArrayBuffer → String)
+                const decoder = new TextDecoder('utf-8');
+                const jsonString = decoder.decode(event.target.value);
+
+                // Debug log
+                console.log('BLE RAW DATA:', jsonString);
+
+                // Parse JSON (format giữ nguyên từ ESP32)
+                const payload = JSON.parse(jsonString);
                 processSensors(payload);
             } catch (e) {
-                console.error("Lỗi parse JSON:", e, " Nội dung lỗi là: ", message.payloadString);
+                console.error('Lỗi parse BLE data:', e);
             }
         }
 
