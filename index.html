@@ -742,11 +742,11 @@
             if (currentMode === 2) { // CURSOR MODE
                 // Di chuyển cursor dựa trên góc nghiêng (lerp targetRoll/targetPitch đã có)
                 if (Math.abs(currentRoll) > DEAD_ZONE) {
-                    cursorX += (currentRoll / 10) * CURSOR_SPEED;
+                    cursorX -= (currentRoll / 10) * CURSOR_SPEED;
                 }
                 if (Math.abs(currentPitch) > DEAD_ZONE) {
                     // Invert pitch: positive pitch moves cursor UP (negative Y change)
-                    cursorY -= (currentPitch / 10) * CURSOR_SPEED;
+                    cursorY += (currentPitch / 10) * CURSOR_SPEED;
                 }
 
                 // Giới hạn trong màn hình
