@@ -745,7 +745,8 @@
                     cursorX += (currentRoll / 10) * CURSOR_SPEED;
                 }
                 if (Math.abs(currentPitch) > DEAD_ZONE) {
-                    cursorY += (currentPitch / 10) * CURSOR_SPEED;
+                    // Invert pitch: positive pitch moves cursor UP (negative Y change)
+                    cursorY -= (currentPitch / 10) * CURSOR_SPEED;
                 }
 
                 // Giới hạn trong màn hình
