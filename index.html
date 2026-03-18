@@ -268,12 +268,96 @@
                 height: 100px;
             }
         }
+
+        /* --- VIRTUAL CURSOR & EFFECTS --- */
+        #virtual-cursor {
+            position: fixed;
+            width: 25px;
+            height: 25px;
+            border: 2px solid var(--neon-cyan);
+            border-radius: 50%;
+            background: rgba(0, 229, 255, 0.2);
+            box-shadow: 0 0 10px var(--neon-cyan), 0 0 20px var(--neon-cyan);
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            display: none; /* Hidden by default */
+            transition: transform 0.1s ease-out;
+        }
+
+        #virtual-cursor::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 4px;
+            height: 4px;
+            background: var(--neon-cyan);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .click-ripple {
+            position: fixed;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 9998;
+            animation: ripple-out 0.6s ease-out forwards;
+        }
+
+        @keyframes ripple-out {
+            0% {
+                width: 0;
+                height: 0;
+                border: 2px solid currentColor;
+                opacity: 1;
+            }
+            100% {
+                width: 100px;
+                height: 100px;
+                border: 1px solid currentColor;
+                opacity: 0;
+            }
+        }
+
+        #snap-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10000;
+        }
+
+        .snap-active {
+            animation: snap-flash 1s ease-out forwards;
+        }
+
+        @keyframes snap-flash {
+            0% { opacity: 0; }
+            10% { opacity: 0.8; }
+            100% { opacity: 0; }
+        }
+
+        .thanos-fade {
+            animation: thanos-fade-out 1.2s ease-out forwards;
+        }
+
+        @keyframes thanos-fade-out {
+            0% { opacity: 1; transform: scale(1); filter: blur(0); }
+            100% { opacity: 0; transform: scale(1.1) translateY(-20px); filter: blur(10px) grayscale(1); }
+        }
+
     </style>
 </head>
 
 <body>
-
-    <header>
+    <div id="virtual-cursor"></div>
+    <div id="snap-overlay"></div>
         <h1>INFINITY // COMMAND CENTER</h1>
         <div class="connection-bar">
             <button class="btn-connect" id="btn-ble" onclick="connectBLE()">CONNECT VIA BLUETOOTH</button>
@@ -334,13 +418,21 @@
         let bleDevice = null;
         let bleCharacteristic = null;
 
-        // --- BIẾN LOGIC TYPING MODE ---
-        let isTypingMode = false;
+        // --- BIẾN LOGIC MODE ---
+        let currentMode = 0; // 0: OFF, 1: TYPING, 2: CURSOR
+        const MODES = ["OFF", "TYPING", "CURSOR"];
+
+        // Cursor Logic
+        let cursorX = window.innerWidth / 2;
+        let cursorY = window.innerHeight / 2;
+        const CURSOR_SPEED = 15;
+        const DEAD_ZONE = 3.0;
 
         // Timer Logic
         let isHolding = false;
         let holdStartTime = 0;
         let cooldownUntil = 0;
+        let lastClickTime = 0;
 
         // Keystroke Logic
         let currentLetter = 'A';
@@ -534,12 +626,41 @@
             try {
                 const decoder = new TextDecoder('utf-8');
                 const jsonString = decoder.decode(event.target.value);
-                console.log('BLE RAW DATA:', jsonString);
+                // console.log('BLE RAW DATA:', jsonString);
 
                 const payload = JSON.parse(jsonString);
+                
+                // Xử lý Snap (Búng tay)
+                if (payload.snap === true) {
+                    triggerSnapEffect();
+                }
+
                 processSensors(payload);
             } catch (e) {
                 console.error('Lỗi parse BLE data:', e);
+            }
+        }
+
+        function triggerSnapEffect() {
+            console.log("SNAP EFFECT TRIGGERED!");
+            const overlay = document.getElementById('snap-overlay');
+            overlay.classList.remove('snap-active');
+            void overlay.offsetWidth; // Trigger reflow
+            overlay.classList.add('snap-active');
+
+            // Hiệu ứng Thanos: làm mờ toàn bộ dashboard trong chốc lát
+            const dashboard = document.querySelector('.dashboard');
+            dashboard.classList.add('thanos-fade');
+            setTimeout(() => {
+                dashboard.classList.remove('thanos-fade');
+            }, 1200);
+
+            // Nếu đang có text, xóa bớt ký tự cuối (giống tan biến)
+            if (currentMode === 1) { // TYPING MODE
+                let outBox = document.getElementById("text-output");
+                if (outBox.innerText.length > 0) {
+                    outBox.innerText = outBox.innerText.slice(0, -1);
+                }
             }
         }
 
@@ -574,7 +695,7 @@
                     let holdDuration = now - holdStartTime;
 
                     if (holdDuration >= 3000) {
-                        toggleTypingMode();
+                        cycleMode(); // Đổi từ toggle sang cycle
                         isHolding = false;
                         document.getElementById("hold-feedback").innerText = "MODE SWITCHED!";
                         cooldownUntil = now + 2000;
@@ -593,9 +714,8 @@
             }
 
             // 3. Logic Đánh chữ (Chỉ chạy khi Typing Mode bật)
-            if (isTypingMode) {
+            if (currentMode === 1) { // TYPING MODE
                 // Hiện tại sử dụng `currentRoll` (1 siêu mượt) để chọn chữ 
-                // Thay vì dùng `roll` nhảy loạn xạ
                 let clampedRoll = Math.max(-60, Math.min(60, currentRoll));
                 let normalized = (clampedRoll + 60) / 120;
                 let charIndex = Math.floor(normalized * 26.99);
@@ -617,6 +737,49 @@
                     }
                 }
             }
+
+            // 4. Logic Chuột ảo (Chỉ chạy khi Cursor Mode bật)
+            if (currentMode === 2) { // CURSOR MODE
+                // Di chuyển cursor dựa trên góc nghiêng (lerp targetRoll/targetPitch đã có)
+                if (Math.abs(currentRoll) > DEAD_ZONE) {
+                    cursorX += (currentRoll / 10) * CURSOR_SPEED;
+                }
+                if (Math.abs(currentPitch) > DEAD_ZONE) {
+                    cursorY += (currentPitch / 10) * CURSOR_SPEED;
+                }
+
+                // Giới hạn trong màn hình
+                cursorX = Math.max(0, Math.min(window.innerWidth, cursorX));
+                cursorY = Math.max(0, Math.min(window.innerHeight, cursorY));
+
+                // Cập nhật vị trí UI
+                const cursorEl = document.getElementById('virtual-cursor');
+                cursorEl.style.left = cursorX + 'px';
+                cursorEl.style.top = cursorY + 'px';
+
+                // Logic Click
+                if (now - lastClickTime > 500) {
+                    if (f1Bent && !f2Bent) { // Left Click
+                        createRipple(cursorX, cursorY, 'var(--neon-cyan)');
+                        lastClickTime = now;
+                        console.log("LEFT CLICK");
+                    } else if (f2Bent && !f1Bent) { // Right Click
+                        createRipple(cursorX, cursorY, 'var(--neon-orange)');
+                        lastClickTime = now;
+                        console.log("RIGHT CLICK");
+                    }
+                }
+            }
+        }
+
+        function createRipple(x, y, color) {
+            const ripple = document.createElement('div');
+            ripple.className = 'click-ripple';
+            ripple.style.left = x + 'px';
+            ripple.style.top = y + 'px';
+            ripple.style.color = color;
+            document.body.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
         }
 
         // Cập nhật đổi màu trạng thái Flex
@@ -631,19 +794,31 @@
             }
         }
 
-        function toggleTypingMode() {
-            isTypingMode = !isTypingMode;
+        function cycleMode() {
+            currentMode = (currentMode + 1) % 3;
+            
             let indicator = document.getElementById("mode-indicator");
             let letterBox = document.getElementById("selected-letter");
+            let cursorEl = document.getElementById("virtual-cursor");
 
-            if (isTypingMode) {
-                indicator.innerText = "TYPING MODE: ACTIVE";
+            indicator.innerText = "MODE: " + MODES[currentMode];
+            
+            // Reset UI states
+            indicator.className = "";
+            letterBox.className = "";
+            cursorEl.style.display = "none";
+
+            if (currentMode === 1) { // TYPING
                 indicator.className = "mode-active";
                 letterBox.className = "letter-active";
+            } else if (currentMode === 2) { // CURSOR
+                indicator.className = "mode-active";
+                indicator.style.color = "var(--neon-orange)";
+                cursorEl.style.display = "block";
+                // Reset cursor về giữa màn hình khi bật
+                cursorX = window.innerWidth / 2;
+                cursorY = window.innerHeight / 2;
             } else {
-                indicator.innerText = "TYPING MODE: OFF";
-                indicator.className = "";
-                letterBox.className = "";
                 letterBox.innerText = "_";
             }
         }
