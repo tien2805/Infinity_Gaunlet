@@ -443,11 +443,6 @@
         let currentRoll = 0, currentPitch = 0; // Giá trị đang hiển thị trên Web
         let targetRoll = 0, targetPitch = 0;   // Giá trị thực tế nhận từ ESP32
 
-        // Momentum variables
-        let velX = 0, velY = 0;
-        const FRICTION = 0.88; 
-        const ACCEL_COEFF = 0.35;
-
         function animateNumbers() {
             // Toán học nội suy Lerp (Cộng dần 10% khoảng cách mỗi khung hình)
             currentRoll += (targetRoll - currentRoll) * 0.10;
@@ -456,48 +451,6 @@
             // Đã đổi chỗ Pitch và Roll theo yêu cầu để khớp với Web UI
             document.getElementById("val-pitch").innerText = currentPitch.toFixed(1) + "°";
             document.getElementById("val-roll").innerText = currentRoll.toFixed(1) + "°";
-
-            // 4. Logic Chuột ảo (Chạy ở 60fps - Chế độ Momentum mượt mã)
-            if (currentMode === 2) { // CURSOR MODE
-                const cursorEl = document.getElementById('virtual-cursor');
-                cursorEl.style.display = 'block';
-
-                // 1. Tính toán gia tốc dựa trên góc nghiêng (đã lerp)
-                // Roll -> X axis
-                if (Math.abs(currentRoll) > DEAD_ZONE) {
-                    let dir = currentRoll > 0 ? 1 : -1;
-                    let strength = Math.pow((Math.abs(currentRoll) - DEAD_ZONE) / 30, 2);
-                    velX += dir * strength * CURSOR_SPEED * ACCEL_COEFF;
-                }
-                
-                // Pitch -> Y axis
-                if (Math.abs(currentPitch) > DEAD_ZONE) {
-                    // Mặc định: Nghiêng lên (pitch > 0) -> Di chuyển UP (Y giảm)
-                    let dir = currentPitch > 0 ? -1 : 1; 
-                    let strength = Math.pow((Math.abs(currentPitch) - DEAD_ZONE) / 30, 2);
-                    velY += dir * strength * CURSOR_SPEED * ACCEL_COEFF;
-                }
-
-                // 2. Áp dụng ma sát (để dừng mượt mà)
-                velX *= FRICTION;
-                velY *= FRICTION;
-
-                // 3. Cập nhật vị trí
-                cursorX += velX;
-                cursorY += velY;
-
-                // Giới hạn trong màn hình
-                cursorX = Math.max(0, Math.min(window.innerWidth, cursorX));
-                cursorY = Math.max(0, Math.min(window.innerHeight, cursorY));
-
-                // Cập nhật vị trí UI
-                cursorEl.style.left = cursorX + 'px';
-                cursorEl.style.top = cursorY + 'px';
-            } else {
-                const cursorEl = document.getElementById('virtual-cursor');
-                if (cursorEl) cursorEl.style.display = 'none';
-                velX = 0; velY = 0; // Reset momentum
-            }
 
             requestAnimationFrame(animateNumbers);
         }
@@ -715,8 +668,8 @@
         function processSensors(data) {
             const flex1 = data.flex1 || "STRAIGHT";
             const flex2 = data.flex2 || "STRAIGHT";
-            const roll = data.pitch || 0; // ESP32 sends Roll in 'pitch'
-            const pitch = data.roll || 0; // ESP32 sends Pitch in 'roll'
+            const roll = data.roll || 0;
+            const pitch = data.pitch || 0;
 
             const f1Bent = (flex1 === "BENT");
             const f2Bent = (flex2 === "BENT");
@@ -770,7 +723,7 @@
                 currentLetter = alphabet[charIndex];
                 document.getElementById("selected-letter").innerText = currentLetter;
 
-                if (f1Bent && !f2Bent) {
+                if (f1Bent && !f2Bent) { 
                     if (now - lastTypeTime > 600) {
                         lastTypeTime = now;
                         let outBox = document.getElementById("text-output");
@@ -787,20 +740,13 @@
 
             // 4. Logic Chuột ảo (Chỉ chạy khi Cursor Mode bật)
             if (currentMode === 2) { // CURSOR MODE
-                // Di chuyển cursor dựa trên góc nghiêng
+                // Di chuyển cursor dựa trên góc nghiêng (lerp targetRoll/targetPitch đã có)
                 if (Math.abs(currentRoll) > DEAD_ZONE) {
-                    // Exponential scaling: tilted more = faster speed
-                    let direction = currentRoll > 0 ? 1 : -1;
-                    let strength = Math.pow((Math.abs(currentRoll) - DEAD_ZONE) / 30, 1.5);
-                    cursorX += direction * strength * CURSOR_SPEED;
+                    cursorX += (currentRoll / 10) * CURSOR_SPEED;
                 }
                 if (Math.abs(currentPitch) > DEAD_ZONE) {
-                    // Invert pitch: positive pitch (tilt up) moves cursor UP (negative Y change)
-                    // If the user says tilt up goes down, we swap -= to += or vice-versa
-                    // Based on atan2(-AcX, ...), tilt up usually gives positive pitch
-                    let direction = currentPitch > 0 ? -1 : 1; 
-                    let strength = Math.pow((Math.abs(currentPitch) - DEAD_ZONE) / 30, 1.5);
-                    cursorY += direction * strength * CURSOR_SPEED;
+                    // Invert pitch: positive pitch moves cursor UP (negative Y change)
+                    cursorY -= (currentPitch / 10) * CURSOR_SPEED;
                 }
 
                 // Giới hạn trong màn hình
