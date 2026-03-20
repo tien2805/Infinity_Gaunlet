@@ -572,7 +572,6 @@
                 const statusEl = document.getElementById('status-msg');
                 statusEl.innerText = 'SCANNING FOR BLUETOOTH DEVICES...';
                 statusEl.style.color = '#FF9900';
-
                 // Yêu cầu người dùng chọn thiết bị (chỉ cần 1 lần duy nhất)
                 bleDevice = await navigator.bluetooth.requestDevice({
                     filters: [{ services: [SERVICE_UUID] }],
@@ -960,8 +959,15 @@
             }
         }
 
-
-
+        // Phím tắt - Bấm phím Delete (Del) hoặc Backspace để kích hoạt Thanos Snap
+        window.addEventListener('keydown', function (event) {
+            console.log("Phím vừa bấm: " + event.key + " - Mã code: " + event.code);
+            // Hỗ trợ cả phím Delete và Backspace (vì một số laptop Mac/Windows bị lộn 2 phím này)
+            if (event.code === 'Delete' || event.key === 'Delete' || event.code === 'Backspace' || event.key === 'Backspace') {
+                event.preventDefault();
+                triggerSnapEffect();
+            }
+        });
 
     </script>
 </body>
