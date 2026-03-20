@@ -99,7 +99,7 @@
             flex: 1;
             gap: 20px;
             /* Update to row to match reference image side-by-side */
-            flex-direction: row; 
+            flex-direction: row;
         }
 
         .panel {
@@ -282,7 +282,8 @@
             box-shadow: 0 0 10px var(--neon-cyan), 0 0 20px var(--neon-cyan);
             pointer-events: none;
             z-index: 9999;
-            display: none; /* Hidden by default */
+            display: none;
+            /* Hidden by default */
             will-change: transform;
         }
 
@@ -314,6 +315,7 @@
                 border: 2px solid currentColor;
                 opacity: 1;
             }
+
             100% {
                 width: 100px;
                 height: 100px;
@@ -339,30 +341,94 @@
         }
 
         @keyframes snap-flash {
-            0% { opacity: 0; }
-            10% { opacity: 0.8; }
-            100% { opacity: 0; }
+            0% {
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 0.8;
+            }
+
+            100% {
+                opacity: 0;
+            }
         }
 
-        .thanos-fade {
-            animation: thanos-fade-out 1.2s ease-out forwards;
+        @keyframes dustDisintegrate {
+            0% {
+                filter: blur(0px);
+                opacity: 1;
+                transform: scale(1) translate(0, 0);
+            }
+
+            40% {
+                filter: blur(8px) sepia(60%) hue-rotate(-10deg) saturate(300%) brightness(1.2);
+                opacity: 0.6;
+                transform: scale(1.02) translate(-10px, -15px);
+            }
+
+            100% {
+                filter: blur(20px) sepia(80%) hue-rotate(-20deg) saturate(400%) brightness(0.5);
+                opacity: 0;
+                transform: scale(1.05) translate(-30px, -40px);
+            }
         }
 
-        @keyframes thanos-fade-out {
-            0% { opacity: 1; transform: scale(1); filter: blur(0); }
-            100% { opacity: 0; transform: scale(1.1) translateY(-20px); filter: blur(10px) grayscale(1); }
+        .thanos-snapping {
+            animation: dustDisintegrate 4s ease-in forwards;
+            pointer-events: none;
         }
 
+        @keyframes showEndGame {
+            0% {
+                opacity: 0;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .end-game-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: black;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 6rem;
+            letter-spacing: 20px;
+            z-index: 10000;
+            opacity: 0;
+            animation: showEndGame 3s ease-in forwards;
+            pointer-events: auto;
+            /* Lock interactions */
+        }
+
+        .end-game-subtext {
+            font-size: 1.2rem;
+            color: #555;
+            letter-spacing: 8px;
+            margin-top: 20px;
+        }
     </style>
 </head>
 
 <body>
     <div id="virtual-cursor"></div>
     <div id="snap-overlay"></div>
+    <header>
         <h1>INFINITY // COMMAND CENTER</h1>
         <div class="connection-bar">
             <button class="btn-connect" id="btn-ble" onclick="connectBLE()">CONNECT VIA BLUETOOTH</button>
-            <button class="btn-connect" id="btn-disconnect" onclick="disconnectBLE()" style="display:none; border-color: var(--neon-red); color: var(--neon-red);">DISCONNECT</button>
+            <button class="btn-connect" id="btn-disconnect" onclick="disconnectBLE()"
+                style="display:none; border-color: var(--neon-red); color: var(--neon-red);">DISCONNECT</button>
         </div>
         <div id="status-msg">SYSTEM OFFLINE. CLICK CONNECT TO PAIR VIA BLUETOOTH.</div>
     </header>
@@ -413,7 +479,7 @@
         // CẤU HÌNH BLE (Web Bluetooth API)
         // UUID phải khớp với INFINITYGAUNLET.ino
         // ==========================================
-        const SERVICE_UUID        = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+        const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
         const CHARACTERISTIC_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
 
         let bleDevice = null;
@@ -456,8 +522,10 @@
             currentPitch += (targetPitch - currentPitch) * 0.10;
 
             // Đã đổi chỗ Pitch và Roll theo yêu cầu để khớp với Web UI
-            document.getElementById("val-pitch").innerText = currentPitch.toFixed(1) + "°";
-            document.getElementById("val-roll").innerText = currentRoll.toFixed(1) + "°";
+            let pEl = document.getElementById("val-pitch");
+            let rEl = document.getElementById("val-roll");
+            if (pEl) pEl.innerText = currentPitch.toFixed(1) + "°";
+            if (rEl) rEl.innerText = currentRoll.toFixed(1) + "°";
 
             requestAnimationFrame(animateNumbers);
         }
@@ -668,7 +736,7 @@
                 console.log('BLE RAW:', jsonString);
 
                 const payload = JSON.parse(jsonString);
-                
+
                 // Xu ly Snap
                 if (payload.snap === true) {
                     triggerSnapEffect();
@@ -681,26 +749,64 @@
         }
 
         function triggerSnapEffect() {
+            // Ngăn chặn chạy nhiều lần
+            if (document.body.classList.contains("snap-triggered")) return;
+            document.body.classList.add("snap-triggered");
+
             console.log("SNAP EFFECT TRIGGERED!");
+
+            let bgmAudio = new Audio('endgame.mp3');
+
+            // Xử lý nhạc Fade In từ 0 lên 0.6 trong 2 giây đầu
+            bgmAudio.volume = 0;
+            bgmAudio.play().catch(err => console.log("Audio play err:", err));
+
+            let fadeIn = setInterval(() => {
+                if (bgmAudio.volume < 0.55) {
+                    bgmAudio.volume += 0.05;
+                } else {
+                    bgmAudio.volume = 0.6;
+                    clearInterval(fadeIn);
+                }
+            }, 150);
+
+            // Dừng nhạc nền sau đúng 10 giây kể từ lúc búng tay (bắt đầu fade out ở giây 9)
+            setTimeout(() => {
+                let fadeAudio = setInterval(() => {
+                    if (bgmAudio.volume > 0.05) {
+                        bgmAudio.volume -= 0.05;
+                    } else {
+                        bgmAudio.pause();
+                        clearInterval(fadeAudio);
+                    }
+                }, 100);
+            }, 9000);
+
             const overlay = document.getElementById('snap-overlay');
             overlay.classList.remove('snap-active');
             void overlay.offsetWidth; // Trigger reflow
             overlay.classList.add('snap-active');
 
-            // Hiệu ứng Thanos: làm mờ toàn bộ dashboard trong chốc lát
-            const dashboard = document.querySelector('.dashboard');
-            dashboard.classList.add('thanos-fade');
-            setTimeout(() => {
-                dashboard.classList.remove('thanos-fade');
-            }, 1200);
+            // Hiệu ứng tan thành cát bụi cho toàn bộ nội dung (header, dashboard, cursor)
+            document.querySelectorAll("header, .dashboard, #virtual-cursor").forEach(el => {
+                el.classList.add("thanos-snapping");
+            });
 
-            // Nếu đang có text, xóa bớt ký tự cuối (giống tan biến)
-            if (currentMode === 1) { // TYPING MODE
-                let outBox = document.getElementById("text-output");
-                if (outBox.innerText.length > 0) {
-                    outBox.innerText = outBox.innerText.slice(0, -1);
-                }
-            }
+            // Hiển thị màn hình "END GAME" sau khi hòa tan (chờ 4 giây)
+            setTimeout(() => {
+                let endGame = document.createElement("div");
+                endGame.className = "end-game-screen";
+                endGame.innerHTML = `
+                    <div>END GAME</div>
+                    <div class="end-game-subtext">PRESS F5 TO REBOOT SYSTEM</div>
+                `;
+                document.body.appendChild(endGame);
+
+                // Cắt phần tử hỏng khỏi RAM
+                setTimeout(() => {
+                    document.querySelectorAll("header, .dashboard, #virtual-cursor").forEach(el => el.remove());
+                }, 1000);
+            }, 4000);
         }
 
         // --- HÀM XỬ LÝ LÕI (CORE LOGIC) ---
@@ -716,7 +822,7 @@
             // 1. Cap nhat UI Cam bien
             updateSensorUI("val-flex1", f1Bent);
             updateSensorUI("val-flex2", f2Bent);
-            
+
             // Gan target de vong lap animateNumbers tu dong chay den
             targetRoll = roll;
             targetPitch = pitch;
@@ -762,7 +868,7 @@
                 currentLetter = alphabet[charIndex];
                 document.getElementById("selected-letter").innerText = currentLetter;
 
-                if (f1Bent && !f2Bent) { 
+                if (f1Bent && !f2Bent) {
                     if (now - lastTypeTime > 600) {
                         lastTypeTime = now;
                         let outBox = document.getElementById("text-output");
@@ -822,13 +928,13 @@
 
         function cycleMode() {
             currentMode = (currentMode + 1) % 3;
-            
+
             let indicator = document.getElementById("mode-indicator");
             let letterBox = document.getElementById("selected-letter");
             let cursorEl = document.getElementById("virtual-cursor");
 
             indicator.innerText = "MODE: " + MODES[currentMode];
-            
+
             // Reset UI states
             indicator.className = "";
             letterBox.className = "";
