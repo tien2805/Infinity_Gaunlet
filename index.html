@@ -428,13 +428,26 @@
 
         /* --- BOOTUP ANIMATION --- */
         body.booting .dashboard {
-            animation: bootUpDash 2s ease-in forwards;
+            animation: bootUpDash 2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
             pointer-events: auto;
         }
 
         @keyframes bootUpDash {
-            0% { opacity: 0.05; filter: grayscale(1) brightness(0.2); }
-            100% { opacity: 1; filter: grayscale(0) brightness(1); }
+            0% { 
+                opacity: 0.05; 
+                filter: grayscale(1) brightness(0.2) drop-shadow(0 0 0px var(--neon-cyan)); 
+                transform: scale(0.98);
+            }
+            60% { 
+                opacity: 0.9; 
+                filter: grayscale(0) brightness(1.8) drop-shadow(0 0 50px var(--neon-cyan)); 
+                transform: scale(1.02);
+            }
+            100% { 
+                opacity: 1; 
+                filter: grayscale(0) brightness(1) drop-shadow(0 0 0px transparent); 
+                transform: scale(1);
+            }
         }
     </style>
 </head>
