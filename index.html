@@ -635,6 +635,33 @@
             }
 
             console.log('BLE Connected to:', device.name);
+
+            // Bật hiệu ứng âm thanh khi kết nối thành công mượt mà
+            let connectAudio = new Audio('connect.mp3');
+            connectAudio.volume = 0;
+            connectAudio.play().catch(err => console.log("Audio play err:", err));
+            
+            // Fade-in trong vài giây đầu
+            let fadeIn = setInterval(() => {
+                if (connectAudio.volume < 0.95) {
+                    connectAudio.volume += 0.05;
+                } else {
+                    connectAudio.volume = 1.0;
+                    clearInterval(fadeIn);
+                }
+            }, 50);
+
+            // Tắt nhạc sau 4 giây (fade out)
+            setTimeout(() => {
+                let fadeConnect = setInterval(() => {
+                    if (connectAudio.volume > 0.05) {
+                        connectAudio.volume -= 0.05;
+                    } else {
+                        connectAudio.pause();
+                        clearInterval(fadeConnect);
+                    }
+                }, 50);
+            }, 4000);
         }
 
         // ==========================================
@@ -802,7 +829,7 @@
                 endGame.className = "end-game-screen";
                 endGame.innerHTML = `
                     <div>END GAME</div>
-                    <div class="end-game-subtext">THE END OF CDP301</div>
+                    <div class="end-game-subtext">PRESS F5 TO REBOOT SYSTEM</div>
                 `;
                 document.body.appendChild(endGame);
 
