@@ -428,25 +428,69 @@
 
         /* --- BOOTUP ANIMATION --- */
         body.booting .dashboard {
-            animation: bootUpDash 2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+            animation: bootUpDash 2.5s cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
             pointer-events: auto;
+            transform-origin: center;
+        }
+
+        body.booting::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(circle at center, rgba(0, 229, 255, 0.8) 0%, transparent 70%);
+            z-index: 9999;
+            pointer-events: none;
+            mix-blend-mode: screen;
+            animation: systemFlash 2.5s forwards;
+        }
+
+        body.booting::after {
+            content: '';
+            position: fixed;
+            top: -10%; left: 0; width: 100vw; height: 4px;
+            background: #fff;
+            box-shadow: 0 0 20px 5px var(--neon-cyan), 0 0 40px 10px var(--neon-cyan);
+            z-index: 10000;
+            pointer-events: none;
+            animation: systemScan 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes systemScan {
+            0% { top: -10%; opacity: 1; }
+            100% { top: 110%; opacity: 0; }
+        }
+
+        @keyframes systemFlash {
+            0%, 20% { opacity: 0; transform: scale(0.5); }
+            30% { opacity: 1; transform: scale(1.2); }
+            50% { opacity: 0.3; transform: scale(1); }
+            100% { opacity: 0; }
         }
 
         @keyframes bootUpDash {
             0% { 
-                opacity: 0.05; 
-                filter: grayscale(1) brightness(0.2) drop-shadow(0 0 0px var(--neon-cyan)); 
-                transform: scale(0.98);
+                opacity: 0; filter: grayscale(1) brightness(0) blur(20px); 
+                transform: scale(0.8) translateY(100px); 
             }
-            60% { 
-                opacity: 0.9; 
-                filter: grayscale(0) brightness(1.8) drop-shadow(0 0 50px var(--neon-cyan)); 
-                transform: scale(1.02);
+            20% { 
+                opacity: 0.2; filter: grayscale(0.8) brightness(0.5) blur(10px); 
+                transform: scale(0.9) translateY(20px); 
+            }
+            25% { 
+                opacity: 0.05; filter: grayscale(1) brightness(0) blur(15px); 
+            }
+            30% { 
+                /* BOOM / POWER SURGE */
+                opacity: 1; filter: grayscale(0) brightness(2.5) drop-shadow(0 0 100px var(--neon-cyan)) contrast(1.5) blur(0px); 
+                transform: scale(1.05) translateY(-5px); 
+            }
+            50% { 
+                opacity: 1; filter: grayscale(0) brightness(1.2) drop-shadow(0 0 30px var(--neon-cyan)); 
+                transform: scale(1.01) translateY(0); 
             }
             100% { 
-                opacity: 1; 
-                filter: grayscale(0) brightness(1) drop-shadow(0 0 0px transparent); 
-                transform: scale(1);
+                opacity: 1; filter: grayscale(0) brightness(1) drop-shadow(0 0 0px transparent); 
+                transform: scale(1); 
             }
         }
     </style>
@@ -671,10 +715,10 @@
             // Bật hiệu ứng khởi động GUI bằng CSS class
             document.body.className = 'booting';
 
-            // Tự dọn dẹp class booting sau 2s
+            // Tự dọn dẹp class booting sau 2.5s
             setTimeout(() => {
                 document.body.className = '';
-            }, 2000);
+            }, 2500);
 
             // Bật hiệu ứng âm thanh khi kết nối thành công mượt mà
             let connectAudio = new Audio('connect.mp3');
