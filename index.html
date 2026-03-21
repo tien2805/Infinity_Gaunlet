@@ -509,7 +509,9 @@
 
         // Keystroke Logic
         let currentLetter = 'A';
+        let currentLetterIdx = 0;
         let lastTypeTime = 0;
+        let lastLetterChangeTime = 0;
         const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_";
 
         // --- TWEENING (HIỆU ỨNG MƯỢT SỐ DI CHUYỂN) ---
@@ -755,7 +757,7 @@
             console.log("SNAP EFFECT TRIGGERED!");
 
             // Sử dụng link raw trực tiếp từ GitHub của bạn để đảm bảo không lỗi khi đưa lên mạng
-            let bgmAudio = new Audio('endgame.mp3'); 
+            let bgmAudio = new Audio('https://raw.githubusercontent.com/tien2805/Infinity_Gauntlet/main/endgame.mp3');
 
             // Xử lý nhạc Fade In từ 0 lên 0.6 trong 2 giây đầu
             bgmAudio.volume = 0;
@@ -798,7 +800,7 @@
                 endGame.className = "end-game-screen";
                 endGame.innerHTML = `
                     <div>END GAME</div>
-                    <div class="end-game-subtext">THE END OF CDP201</div>
+                    <div class="end-game-subtext">PRESS F5 TO REBOOT SYSTEM</div>
                 `;
                 document.body.appendChild(endGame);
 
@@ -860,12 +862,20 @@
 
             // 3. Logic Đánh chữ (Chỉ chạy khi Typing Mode bật)
             if (currentMode === 1) { // TYPING MODE
-                // Hiện tại sử dụng `currentRoll` (1 siêu mượt) để chọn chữ 
-                let clampedRoll = Math.max(-60, Math.min(60, currentRoll));
-                let normalized = (clampedRoll + 60) / 120;
-                let charIndex = Math.floor(normalized * 26.99);
+                // Debounce đổi chữ: nghiêng Roll > 20 độ sẽ chuyển tiến, < -20 độ sẽ chuyển lùi
+                if (now - lastLetterChangeTime > 300) {
+                    if (currentRoll > 20) {
+                        currentLetterIdx++;
+                        if (currentLetterIdx >= alphabet.length) currentLetterIdx = 0;
+                        lastLetterChangeTime = now;
+                    } else if (currentRoll < -20) {
+                        currentLetterIdx--;
+                        if (currentLetterIdx < 0) currentLetterIdx = alphabet.length - 1;
+                        lastLetterChangeTime = now;
+                    }
+                }
 
-                currentLetter = alphabet[charIndex];
+                currentLetter = alphabet[currentLetterIdx];
                 document.getElementById("selected-letter").innerText = currentLetter;
 
                 if (f1Bent && !f2Bent) {
@@ -943,6 +953,11 @@
             if (currentMode === 1) { // TYPING
                 indicator.className = "mode-active";
                 letterBox.className = "letter-active";
+
+                // Trở về chữ A khi bắt đầu Typing Mode
+                currentLetterIdx = 0;
+                currentLetter = alphabet[currentLetterIdx];
+                letterBox.innerText = currentLetter;
             } else if (currentMode === 2) { // CURSOR
                 indicator.className = "mode-active";
                 indicator.style.color = "var(--neon-orange)";
