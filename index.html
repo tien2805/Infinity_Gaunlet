@@ -759,8 +759,7 @@
             console.log("SNAP EFFECT TRIGGERED!");
 
             // Sử dụng link raw trực tiếp từ GitHub của bạn để đảm bảo không lỗi khi đưa lên mạng
-            let bgmAudio = new Audio('https://raw.githubusercontent.com/tien2805/Infinity_Gauntlet/main/endgame.mp3');
-
+            let bgmAudio = new Audio('endgame.mp3')
             // Xử lý nhạc Fade In từ 0 lên 0.6 trong 2 giây đầu
             bgmAudio.volume = 0;
             bgmAudio.play().catch(err => console.log("Audio play err:", err));
