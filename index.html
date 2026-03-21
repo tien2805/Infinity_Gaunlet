@@ -512,6 +512,7 @@
         let currentLetterIdx = 0;
         let lastTypeTime = 0;
         let lastLetterChangeTime = 0;
+        let canChangeLetter = true;
         const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_";
 
         // --- TWEENING (HIỆU ỨNG MƯỢT SỐ DI CHUYỂN) ---
@@ -862,16 +863,21 @@
 
             // 3. Logic Đánh chữ (Chỉ chạy khi Typing Mode bật)
             if (currentMode === 1) { // TYPING MODE
-                // Debounce đổi chữ: nghiêng Roll > 20 độ sẽ chuyển tiến, < -20 độ sẽ chuyển lùi
-                if (now - lastLetterChangeTime > 300) {
-                    if (currentRoll > 20) {
+                // Reset cờ gạt chữ nếu tay về lại góc < 40 độ
+                if (Math.abs(currentRoll) < 40) {
+                    canChangeLetter = true;
+                }
+
+                // Chuyển 1 chữ duy nhất mỗi lần vặn tay qua 40 độ
+                if (canChangeLetter) {
+                    if (currentRoll > 40) {
                         currentLetterIdx++;
                         if (currentLetterIdx >= alphabet.length) currentLetterIdx = 0;
-                        lastLetterChangeTime = now;
-                    } else if (currentRoll < -20) {
+                        canChangeLetter = false;
+                    } else if (currentRoll < -40) {
                         currentLetterIdx--;
                         if (currentLetterIdx < 0) currentLetterIdx = alphabet.length - 1;
-                        lastLetterChangeTime = now;
+                        canChangeLetter = false;
                     }
                 }
 
