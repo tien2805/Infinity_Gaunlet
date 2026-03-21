@@ -758,8 +758,9 @@
 
             console.log("SNAP EFFECT TRIGGERED!");
 
-            // Sử dụng link raw trực tiếp từ GitHub của bạn để đảm bảo không lỗi khi đưa lên mạng
-            let bgmAudio = new Audio('endgame.mp3')
+            // Sử dụng file cục bộ vì đã được đưa lên cùng thư mục
+            let bgmAudio = new Audio('endgame.mp3');
+
             // Xử lý nhạc Fade In từ 0 lên 0.6 trong 2 giây đầu
             bgmAudio.volume = 0;
             bgmAudio.play().catch(err => console.log("Audio play err:", err));
@@ -863,18 +864,18 @@
 
             // 3. Logic Đánh chữ (Chỉ chạy khi Typing Mode bật)
             if (currentMode === 1) { // TYPING MODE
-                // Reset cờ gạt chữ nếu tay về lại góc < 40 độ
-                if (Math.abs(currentRoll) < 40) {
+                // Reset cờ gạt chữ nếu tay về lại góc < 30 độ
+                if (Math.abs(currentRoll) < 30) {
                     canChangeLetter = true;
                 }
 
-                // Chuyển 1 chữ duy nhất mỗi lần vặn tay qua 40 độ
+                // Chuyển 1 chữ duy nhất mỗi lần vặn tay qua 30 độ
                 if (canChangeLetter) {
-                    if (currentRoll > 40) {
+                    if (currentRoll > 30) {
                         currentLetterIdx++;
                         if (currentLetterIdx >= alphabet.length) currentLetterIdx = 0;
                         canChangeLetter = false;
-                    } else if (currentRoll < -40) {
+                    } else if (currentRoll < -30) {
                         currentLetterIdx--;
                         if (currentLetterIdx < 0) currentLetterIdx = alphabet.length - 1;
                         canChangeLetter = false;
