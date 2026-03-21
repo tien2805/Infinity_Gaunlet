@@ -682,7 +682,7 @@
             bleCharacteristic.addEventListener('characteristicvaluechanged', onBLEData);
 
             // Cập nhật UI
-            statusEl.innerText = 'SYSTEM ONLINE — CONNECTED VIA BLUETOOTH (' + (device.name || 'ESP32') + ')';
+            statusEl.innerText = 'GAME ON — CONNECTED VIA BLUETOOTH (' + (device.name || 'ESP32') + ')';
             statusEl.style.color = '#00FF00';
             document.getElementById('btn-ble').style.display = 'none';
             document.getElementById('btn-disconnect').style.display = 'inline-block';
