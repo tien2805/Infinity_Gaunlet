@@ -513,6 +513,7 @@
         let lastTypeTime = 0;
         let lastLetterChangeTime = 0;
         let canChangeLetter = true;
+        let canTypeLetter = true;
         const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_";
 
         // --- TWEENING (HIỆU ỨNG MƯỢT SỐ DI CHUYỂN) ---
@@ -884,18 +885,22 @@
                 currentLetter = alphabet[currentLetterIdx];
                 document.getElementById("selected-letter").innerText = currentLetter;
 
-                if (f1Bent && !f2Bent) {
-                    if (now - lastTypeTime > 600) {
-                        lastTypeTime = now;
-                        let outBox = document.getElementById("text-output");
-                        let letterToAdd = currentLetter === '_' ? ' ' : currentLetter;
-                        outBox.innerText += letterToAdd;
+                if (!f1Bent && !f2Bent) {
+                    canTypeLetter = true;
+                }
 
-                        document.getElementById("selected-letter").style.transform = "scale(0.8)";
-                        setTimeout(() => {
-                            document.getElementById("selected-letter").style.transform = "scale(1)";
-                        }, 100);
-                    }
+                // Nhập ký tự khi gập ngón 1 HOẶC ngón 2 (tránh gập cả 2 vì đó là đổi mode)
+                if (canTypeLetter && (f1Bent || f2Bent) && (f1Bent !== f2Bent)) {
+                    canTypeLetter = false; // Khóa lại, bắt buộc thả thẳng tay mới gõ được tiếp
+                    
+                    let outBox = document.getElementById("text-output");
+                    let letterToAdd = currentLetter === '_' ? ' ' : currentLetter;
+                    outBox.innerText += letterToAdd;
+
+                    document.getElementById("selected-letter").style.transform = "scale(0.8)";
+                    setTimeout(() => {
+                        document.getElementById("selected-letter").style.transform = "scale(1)";
+                    }, 100);
                 }
             }
 
